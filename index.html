@@ -66,6 +66,18 @@
             transition: transform 0.2s, box-shadow 0.2s;
         }
         .product-card:active { transform: scale(0.98); }
+
+        /* Animation for Heart Icon */
+        @keyframes heartPop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.3); }
+            100% { transform: scale(1); }
+        }
+        .heart-active {
+            fill: #ef4444;
+            color: #ef4444;
+            animation: heartPop 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="min-h-screen flex justify-center items-center p-0 md:p-4 bg-slate-200">
@@ -73,7 +85,7 @@
     <div class="w-full max-w-md bg-white shadow-2xl h-screen md:h-[850px] md:rounded-[3rem] overflow-hidden relative flex flex-col border border-indigo-100" id="app">
         
         <!-- ================= หน้าหลัก (HOME) ================= -->
-        <div id="view-home" class="view h-full flex flex-col bg-slate-50">
+        <div id="view-home" class="view h-full flex flex-col bg-slate-50 relative">
             <header class="bg-white px-6 pt-8 pb-4 z-20 border-b border-indigo-50">
                 <div class="flex justify-between items-center mb-6">
                     <div class="flex items-center gap-3">
@@ -85,9 +97,16 @@
                             <p class="text-[10px] text-indigo-500 font-bold uppercase tracking-widest">ลงประกาศ Staff อีเวนต์</p>
                         </div>
                     </div>
-                    <button onclick="fetchPosts()" class="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
-                        <i data-lucide="refresh-cw" width="18"></i>
-                    </button>
+                    <div class="flex gap-2">
+                         <!-- ปุ่มรายการโปรด -->
+                        <button onclick="showFavorites()" class="w-10 h-10 flex items-center justify-center rounded-full bg-red-50 text-red-400 hover:text-red-500 transition-colors">
+                            <i data-lucide="heart" width="18" class="fill-current"></i>
+                        </button>
+                        <!-- ปุ่มรีเฟรช -->
+                        <button onclick="fetchPosts()" class="w-10 h-10 flex items-center justify-center rounded-full bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors">
+                            <i data-lucide="refresh-cw" width="18"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="space-y-3 mb-4">
@@ -131,11 +150,28 @@
                 <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" id="category-filters"></div>
             </header>
 
-            <div id="post-list" class="flex-1 overflow-y-auto p-5 space-y-5 pb-24 relative"></div>
+            <!-- เพิ่ม padding-bottom เพื่อไม่ให้เนื้อหาถูก Bottom Nav บัง -->
+            <div id="post-list" class="flex-1 overflow-y-auto p-5 space-y-5 pb-32 relative"></div>
 
-            <button onclick="router.navigate('create')" class="absolute bottom-8 right-6 w-16 h-16 bg-indigo-600 text-white rounded-2xl flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-indigo-200 z-30">
-                <i data-lucide="plus" width="32"></i>
-            </button>
+            <!-- Bottom Navigation Bar -->
+            <div class="absolute bottom-0 left-0 w-full bg-white border-t border-slate-100 px-6 py-4 flex justify-between items-center shadow-[0_-5px_20px_rgba(0,0,0,0.03)] z-40 rounded-t-[2rem]">
+                <button onclick="scrollToTop()" class="flex flex-col items-center gap-1 text-indigo-600 flex-1">
+                    <i data-lucide="home" width="24" class="fill-current"></i>
+                    <span class="text-[10px] font-bold">หน้าหลัก</span>
+                </button>
+                
+                <button onclick="router.navigate('create')" class="flex flex-col items-center justify-center -mt-12">
+                    <div class="w-16 h-16 bg-indigo-600 rounded-full shadow-xl shadow-indigo-300 flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform border-4 border-white">
+                        <i data-lucide="plus" width="32"></i>
+                    </div>
+                    <span class="text-[10px] font-bold text-slate-400 mt-2">ลงประกาศ</span>
+                </button>
+
+                <button onclick="showFavorites()" class="flex flex-col items-center gap-1 text-slate-400 flex-1 hover:text-red-400 transition-colors">
+                    <i data-lucide="heart" width="24"></i>
+                    <span class="text-[10px] font-bold">ที่บันทึกไว้</span>
+                </button>
+            </div>
         </div>
 
         <!-- ================= หน้ารายละเอียด (DETAIL) ================= -->
@@ -260,7 +296,7 @@
     </div>
 
     <script>
-        // API URL Backend (Google Apps Script) - ใช้ตัวเดิม
+        // API URL Backend
         const API_URL = "https://script.google.com/macros/s/AKfycbwex7kYj3nZge8Dk6RJhmDWaCNSm9hebNBC_v-_c4C0iEyk9g7GU8BO9ecul6vmvdLPMQ/exec";
 
         let state = {
@@ -272,7 +308,6 @@
             isLoading: false
         };
 
-        // เปลี่ยนหมวดหมู่ให้เข้ากับงาน Events & Booths
         const categories = [
             { label: 'ทั้งหมด', icon: 'layout-grid' },
             { label: 'Staff', icon: 'users' }, 
@@ -299,32 +334,115 @@
             "สงขลา": ["เมืองสงขลา", "หาดใหญ่", "สะเดา"],
             "นครราชสีมา": ["เมืองนครราชสีมา", "ปากช่อง", "สีคิ้ว", "วังน้ำเขียว"],
         };
-        // รายชื่อจังหวัดอื่นๆ
         const otherProvinces = [
              "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "จันทบุรี", "ฉะเชิงเทรา", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครสวรรค์", "นครศรีธรรมราช", "น่าน", "นราธิวาส", "บุรีรัมย์", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สตูล", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"
         ];
         
-        // รวมจังหวัดทั้งหมด
         otherProvinces.forEach(p => {
             if (!thaiLocations[p]) {
                 thaiLocations[p] = ["เมือง" + p, "อำเภอทั่วไป"];
             }
         });
 
-        // จัดเรียงจังหวัดตามตัวอักษร
         const sortedProvinces = Object.keys(thaiLocations).sort((a,b) => a.localeCompare(b, 'th'));
 
-        // Helper ฟังก์ชันป้องกัน XSS
+        // --- Favorites Logic Start ---
+        function getFavorites() {
+            const stored = localStorage.getItem('event_job_favorites');
+            return stored ? JSON.parse(stored) : [];
+        }
+
+        function isFavorite(id) {
+            const favs = getFavorites();
+            return favs.some(item => String(item.id) === String(id));
+        }
+
+        function toggleFavorite(e, post) {
+            e.stopPropagation(); // Prevent card click
+            let favs = getFavorites();
+            const exists = favs.find(item => String(item.id) === String(post.id));
+
+            if (exists) {
+                favs = favs.filter(item => String(item.id) !== String(post.id));
+                // Toast removal
+                const Toast = Swal.mixin({
+                    toast: true, position: 'top-end', showConfirmButton: false, timer: 1500, timerProgressBar: true
+                });
+                Toast.fire({ icon: 'info', title: 'ลบจากรายการโปรดแล้ว' });
+            } else {
+                // Save essential data
+                const savedData = {
+                    id: post.id,
+                    title: post.title,
+                    wage: post.wage,
+                    paymentType: post.paymentType,
+                    jobType: post.jobType,
+                    province: post.province,
+                    district: post.district,
+                    image: post.images && post.images.length > 0 ? post.images[0] : null
+                };
+                favs.push(savedData);
+                // Toast success
+                const Toast = Swal.mixin({
+                    toast: true, position: 'top-end', showConfirmButton: false, timer: 1500, timerProgressBar: true
+                });
+                Toast.fire({ icon: 'success', title: 'บันทึกรายการโปรดแล้ว' });
+            }
+
+            localStorage.setItem('event_job_favorites', JSON.stringify(favs));
+            renderHome(); // Re-render to update heart icons
+        }
+
+        function showFavorites() {
+            const favs = getFavorites();
+            
+            if (favs.length === 0) {
+                Swal.fire({
+                    title: 'ไม่มีรายการที่บันทึก',
+                    text: 'กดหัวใจที่ประกาศเพื่อบันทึกงานที่สนใจ',
+                    icon: 'info',
+                    confirmButtonColor: '#6366f1',
+                    customClass: { popup: 'rounded-3xl' }
+                });
+                return;
+            }
+
+            const listHtml = favs.map(f => {
+                const img = getDirectImage(f.image);
+                return `
+                <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-xl mb-3 border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors text-left relative group" onclick="Swal.close(); router.navigate('detail', '${f.id}')">
+                    <img src="${img}" class="w-16 h-16 rounded-lg object-cover bg-slate-200">
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-slate-800 text-sm truncate">${f.title}</h4>
+                        <p class="text-xs text-slate-500">${f.district ? f.district + ', ' : ''}${f.province}</p>
+                        <p class="text-xs font-bold text-indigo-600 mt-1">฿${Number(f.wage).toLocaleString()} / ${f.paymentType}</p>
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+            Swal.fire({
+                title: `<div class="flex items-center gap-2 justify-center text-slate-800"><i data-lucide="heart" class="text-red-500 fill-red-500"></i> รายการโปรด (${favs.length})</div>`,
+                html: `<div class="max-h-[60vh] overflow-y-auto px-1">${listHtml}</div>`,
+                showConfirmButton: false,
+                showCloseButton: true,
+                customClass: { 
+                    popup: 'rounded-[2rem]',
+                    htmlContainer: 'text-left'
+                },
+                didOpen: () => lucide.createIcons()
+            });
+        }
+        // --- Favorites Logic End ---
+
         function escapeHTML(str = '') {
             return str.replace(/[&<>"']/g, m =>
                 ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])
             );
         }
         
-        // Helper แปลงลิงก์ Google Drive
         function getDirectImage(url) {
             if (!url) {
-                // รูป Default เป็นธีมงาน Event/Exhibition
                 return 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&q=80';
             }
 
@@ -363,6 +481,11 @@
             },
             back: () => router.navigate('home')
         };
+        
+        function scrollToTop() {
+            document.getElementById('post-list').scrollTop = 0;
+            router.navigate('home');
+        }
 
         function triggerFileInput(index) { document.getElementById(`file-${index}`).click(); }
 
@@ -469,9 +592,14 @@
 
                     const wage = Number(p.wage) || 0;
                     const displayImage = getDirectImage(p.images[0]);
+                    
+                    // Check Favorite
+                    const isFav = isFavorite(p.id);
+                    const heartClass = isFav ? 'heart-active' : 'text-slate-300 hover:text-red-400';
+                    const postDataStr = encodeURIComponent(JSON.stringify(p)); // For toggle logic reference
 
                     return `
-                    <div onclick="router.navigate('detail', '${p.id}')" class="product-card bg-white rounded-[2rem] shadow-sm border border-indigo-50 overflow-hidden fade-in cursor-pointer group">
+                    <div onclick="router.navigate('detail', '${p.id}')" class="product-card bg-white rounded-[2rem] shadow-sm border border-indigo-50 overflow-hidden fade-in cursor-pointer group relative">
                         <div class="h-48 bg-slate-100 relative overflow-hidden">
                             <img src="${displayImage}" 
                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
@@ -479,6 +607,10 @@
                             <div class="absolute top-4 left-4 flex flex-col gap-2">
                                 <span class="${badgeColor} text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow-sm uppercase tracking-widest">${p.jobType}</span>
                             </div>
+                            <!-- Heart Icon in Card -->
+                            <button onclick='toggleFavorite(event, ${JSON.stringify(p).replace(/'/g, "&#39;")})' class="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm shadow-sm transition-all hover:bg-white active:scale-90">
+                                <i data-lucide="heart" width="20" class="${heartClass} transition-colors duration-300"></i>
+                            </button>
                         </div>
                         <div class="p-6">
                             <h3 class="font-bold text-slate-800 text-lg line-clamp-1 mb-1">${p.title}</h3>
@@ -510,6 +642,7 @@
             
             const validImages = post.images.filter(i => i).map(url => getDirectImage(url));
             const wage = Number(post.wage) || 0;
+            const isFav = isFavorite(post.id);
 
             let imageLayout = `
                 <div class="flex h-full overflow-x-auto snap-x snap-mandatory scrollbar-hide">
@@ -521,6 +654,10 @@
                 <div class="relative h-[300px]">
                     <button onclick="router.back()" class="absolute top-6 left-6 z-20 bg-white/95 p-3 rounded-2xl shadow-xl text-slate-800 transition-transform active:scale-90">
                         <i data-lucide="arrow-left"></i>
+                    </button>
+                    <!-- Favorite Button in Detail -->
+                    <button onclick='toggleFavorite(event, ${JSON.stringify(post).replace(/'/g, "&#39;")}); renderDetail("${post.id}")' class="absolute top-6 right-20 z-20 bg-white/95 p-3 rounded-2xl shadow-xl transition-transform active:scale-90 hover:bg-red-50">
+                        <i data-lucide="heart" class="${isFav ? 'heart-active' : 'text-slate-400'}"></i>
                     </button>
                     <!-- ปุ่มลบประกาศ -->
                     <button onclick="confirmDelete('${post.id}')" class="absolute top-6 right-6 z-20 bg-white/95 p-3 rounded-2xl shadow-xl text-red-500 transition-transform active:scale-90 hover:bg-red-50">
@@ -568,7 +705,6 @@
             lucide.createIcons();
         }
 
-        // ฟังก์ชันยืนยันการลบ
         async function confirmDelete(id) {
             const result = await Swal.fire({
                 title: 'ลบประกาศนี้?',
